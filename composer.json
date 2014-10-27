@@ -1,0 +1,15 @@
+{
+    "name": "fyfey/geohash",
+    "require": {
+        "phpspec/phpspec": "~2.0"
+    },
+    "authors": [
+        {
+            "name": "Stuart Fyfe",
+            "email": "stuart@enableit.org.uk"
+        }
+    ],
+    "autoload": {
+        "psr-0": {"Fyfey": "src/Fyfey"}
+    }
+}
