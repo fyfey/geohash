@@ -109,7 +109,7 @@ class GeoHash
             }
         }
 
-        return join($hash, '');
+        return implode('', $hash);
     }
 
     protected function calc($bit, $min, $mid, $max)
