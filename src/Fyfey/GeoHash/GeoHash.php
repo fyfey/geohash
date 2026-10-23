@@ -1,74 +1,56 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Fyfey\GeoHash;
 
 class GeoHash
 {
-    const MAX_LAT = 90;
-    const MIN_LAT = -90;
-    const MAX_LON = 180;
-    const MIN_LON = -180;
+    private const MAX_LAT = 90;
+    private const MIN_LAT = -90;
+    private const MAX_LON = 180;
+    private const MIN_LON = -180;
 
-    protected $table;
+    private const TABLE = [
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'b', 'c', 'd', 'e', 'f', 'g',
+        'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+    ];
 
-    public function __construct()
-    {
-        $this->table = array(
-            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'b', 'c', 'd', 'e', 'f', 'g',
-            'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
-        );
-    }
-
-    public function decode($hash, $precision = null)
+    public function decode(string $hash, ?int $precision = null): array
     {
         $bits = [];
-        for ($i = 0; $i < strlen($hash); $i++) {
-            $dec = array_search($hash[$i], $this->table);
-            $code = sprintf('%05d', base_convert($dec, 10, 2));
-            foreach (str_split($code, 1) as $bit) {
-                $bits[] = $bit;
-            }
+        foreach (str_split($hash) as $char) {
+            $dec = array_search($char, self::TABLE);
+            array_push($bits, ...str_split(str_pad(decbin($dec), 5, '0', STR_PAD_LEFT)));
         }
 
-        $lat = [];
-        $lon = [];
-        for ($i = 0; $i < count($bits); $i++) {
-            if ($i % 2 == 0) {
-                $lon[] = $bits[$i];
-            } else {
-                $lat[] = $bits[$i];
-            }
+        $lat = array_values(array_filter($bits, fn($i) => $i % 2 !== 0, ARRAY_FILTER_USE_KEY));
+        $lon = array_values(array_filter($bits, fn($i) => $i % 2 === 0, ARRAY_FILTER_USE_KEY));
+
+        $latMin = self::MIN_LAT;
+        $latMax = self::MAX_LAT;
+        foreach ($lat as $bit) {
+            $this->bisect($bit, $latMin, $latMax);
         }
 
-        $vars = [
-            'val' => 0,
-            'min' => self::MIN_LAT,
-            'max' => self::MAX_LAT
-        ];
-        for ($i = 0; $i < count($lat); $i++) {
-            $vars = $this->calc($lat[$i], $vars['min'], $vars['val'], $vars['max']);
-        }
-        $lat = $vars['val'];
-
-        $vars = [
-            'val' => 0,
-            'min' => self::MIN_LON,
-            'max' => self::MAX_LON
-        ];
-        for ($i = 0; $i < count($lon); $i++) {
-            $vars = $this->calc($lon[$i], $vars['min'], $vars['val'], $vars['max']);
-        }
-        $lon = $vars['val'];
-
-        if ($precision) {
-            $lon = round($lon, $precision);
-            $lat = round($lat, $precision);
+        $lonMin = self::MIN_LON;
+        $lonMax = self::MAX_LON;
+        foreach ($lon as $bit) {
+            $this->bisect($bit, $lonMin, $lonMax);
         }
 
-        return array($lat, $lon);
+        $latVal = ($latMin + $latMax) / 2;
+        $lonVal = ($lonMin + $lonMax) / 2;
+
+        if ($precision !== null) {
+            $latVal = round($latVal, $precision);
+            $lonVal = round($lonVal, $precision);
+        }
+
+        return [$latVal, $lonVal];
     }
 
-    public function encode($lat, $lon, $precision = 5)
+    public function encode(float $lat, float $lon, int $precision = 5): string
     {
         $hash = [];
         $bits = 0;
@@ -103,7 +85,7 @@ class GeoHash
             $bits++;
             $bitsTotal++;
             if ($bits === 5) {
-                $hash[] = $this->table[$hashVal];
+                $hash[] = self::TABLE[$hashVal];
                 $bits = 0;
                 $hashVal = 0;
             }
@@ -112,22 +94,13 @@ class GeoHash
         return implode('', $hash);
     }
 
-    protected function calc($bit, $min, $mid, $max)
+    private function bisect(string $bit, float &$min, float &$max): void
     {
-        if ($bit == 1) {
+        $mid = ($min + $max) / 2;
+        if ($bit === '1') {
             $min = $mid;
-            $max = $max;
-            $val = ($mid + $max) / 2;
         } else {
-            $min = $min;
             $max = $mid;
-            $val = ($mid + $min) / 2;
         }
-
-        return [
-            'min' => $min,
-            'max' => $max,
-            'val' => $val
-        ];
     }
 }

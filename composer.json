@@ -1,5 +1,6 @@
 {
     "name": "fyfey/geohash",
+    "license": "MIT",
     "require": {
         "php": "^8.2"
     },
